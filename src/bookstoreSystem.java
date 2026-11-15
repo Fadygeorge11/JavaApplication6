@@ -23,7 +23,7 @@ public class bookstoreSystem extends JFrame {
 
     public bookstoreSystem() {
 
-        setTitle("📚 E-Book System");
+        setTitle("E-Book System");
         setSize(1500, 900);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -47,7 +47,10 @@ public class bookstoreSystem extends JFrame {
         add(formPanel, BorderLayout.CENTER);
 
         JTextField[] fields = {f1, f2, f3, f4, f5};
-        for (JTextField f : fields) f.setFont(inputFont);
+
+        for (JTextField f : fields) {
+            f.setFont(inputFont);
+        }
 
         JPanel btns = new JPanel();
 
@@ -76,10 +79,12 @@ public class bookstoreSystem extends JFrame {
         update.addActionListener(e -> updateData());
         delete.addActionListener(e -> deleteData());
 
+        buildForm();
         setVisible(true);
     }
 
     void buildForm() {
+
         formPanel.removeAll();
 
         if (currentTable.equals("Book")) {
@@ -106,22 +111,37 @@ public class bookstoreSystem extends JFrame {
     }
 
     void addRow(String text, JTextField field) {
+
         JLabel l = new JLabel(text);
         l.setFont(labelFont);
+
         formPanel.add(l);
         formPanel.add(field);
     }
 
+    // ================= DATABASE CONNECTION =================
+
     Connection getCon() throws Exception {
-        return DriverManager.getConnection(
-                "jdbc:sqlserver://localhost\\SQLEXPRESS;databaseName=E_book;encrypt=true;trustServerCertificate=true",
-                "project",
-                "1234"
-        );
+
+        String url = "jdbc:sqlserver://localhost\\SQLEXPRESS;"
+                + "databaseName=E_book;"
+                + "encrypt=true;"
+                + "trustServerCertificate=true";
+
+        String user = System.getenv("EBOOK_DB_USER");
+        String pass = System.getenv("EBOOK_DB_PASSWORD");
+
+        if (user == null || pass == null) {
+            throw new SQLException("Database credentials are not configured.");
+        }
+
+        return DriverManager.getConnection(url, user, pass);
     }
 
     // ================= INSERT =================
+
     void insertData() {
+
         try (Connection con = getCon()) {
 
             PreparedStatement ps;
@@ -137,18 +157,24 @@ public class bookstoreSystem extends JFrame {
                 ps.setString(3, f3.getText());
                 ps.setInt(4, Integer.parseInt(f4.getText().isEmpty() ? "0" : f4.getText()));
                 ps.setDouble(5, Double.parseDouble(f5.getText().isEmpty() ? "0" : f5.getText()));
-                ps.setString(6, null); // pubcode (optional)
+                ps.setString(6, null);
 
             } else if (currentTable.equals("Author")) {
 
-                ps = con.prepareStatement("INSERT INTO Author VALUES (?,?,?)");
+                ps = con.prepareStatement(
+                        "INSERT INTO Author VALUES (?,?,?)"
+                );
+
                 ps.setString(1, f1.getText());
                 ps.setString(2, f2.getText());
                 ps.setString(3, f3.getText());
 
             } else {
 
-                ps = con.prepareStatement("INSERT INTO Publisher VALUES (?,?,?,?)");
+                ps = con.prepareStatement(
+                        "INSERT INTO Publisher VALUES (?,?,?,?)"
+                );
+
                 ps.setString(1, f1.getText());
                 ps.setString(2, f2.getText());
                 ps.setString(3, f3.getText());
@@ -156,15 +182,22 @@ public class bookstoreSystem extends JFrame {
             }
 
             ps.executeUpdate();
-            JOptionPane.showMessageDialog(this, "✔ Inserted Successfully");
+
+            JOptionPane.showMessageDialog(this, "Inserted Successfully");
 
         } catch (Exception e) {
-            e.printStackTrace();
+
+            JOptionPane.showMessageDialog(this,
+                    "Insert Error: " + e.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
     // ================= SEARCH =================
+
     void searchData() {
+
         try (Connection con = getCon()) {
 
             PreparedStatement ps;
@@ -172,7 +205,10 @@ public class bookstoreSystem extends JFrame {
 
             if (currentTable.equals("Book")) {
 
-                ps = con.prepareStatement("SELECT * FROM Book WHERE ISBN=?");
+                ps = con.prepareStatement(
+                        "SELECT * FROM Book WHERE ISBN=?"
+                );
+
                 ps.setString(1, f1.getText());
                 rs = ps.executeQuery();
 
@@ -181,22 +217,32 @@ public class bookstoreSystem extends JFrame {
                     f3.setText(rs.getString("type"));
                     f4.setText(String.valueOf(rs.getInt("pages")));
                     f5.setText(String.valueOf(rs.getDouble("price")));
+                } else {
+                    JOptionPane.showMessageDialog(this, "Book Not Found");
                 }
 
             } else if (currentTable.equals("Author")) {
 
-                ps = con.prepareStatement("SELECT * FROM Author WHERE authid=?");
+                ps = con.prepareStatement(
+                        "SELECT * FROM Author WHERE authid=?"
+                );
+
                 ps.setString(1, f1.getText());
                 rs = ps.executeQuery();
 
                 if (rs.next()) {
                     f2.setText(rs.getString("f_name"));
                     f3.setText(rs.getString("l_name"));
+                } else {
+                    JOptionPane.showMessageDialog(this, "Author Not Found");
                 }
 
             } else {
 
-                ps = con.prepareStatement("SELECT * FROM Publisher WHERE pubcode=?");
+                ps = con.prepareStatement(
+                        "SELECT * FROM Publisher WHERE pubcode=?"
+                );
+
                 ps.setString(1, f1.getText());
                 rs = ps.executeQuery();
 
@@ -204,16 +250,24 @@ public class bookstoreSystem extends JFrame {
                     f2.setText(rs.getString("name"));
                     f3.setText(rs.getString("city"));
                     f4.setText(rs.getString("phone"));
+                } else {
+                    JOptionPane.showMessageDialog(this, "Publisher Not Found");
                 }
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+
+            JOptionPane.showMessageDialog(this,
+                    "Search Error: " + e.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
     // ================= UPDATE =================
+
     void updateData() {
+
         try (Connection con = getCon()) {
 
             PreparedStatement ps;
@@ -252,42 +306,77 @@ public class bookstoreSystem extends JFrame {
                 ps.setString(4, f1.getText());
             }
 
-            ps.executeUpdate();
-            JOptionPane.showMessageDialog(this, "✔ Updated");
+            int rows = ps.executeUpdate();
+
+            if (rows > 0) {
+                JOptionPane.showMessageDialog(this, "Updated Successfully");
+            } else {
+                JOptionPane.showMessageDialog(this, "Record Not Found");
+            }
 
         } catch (Exception e) {
-            e.printStackTrace();
+
+            JOptionPane.showMessageDialog(this,
+                    "Update Error: " + e.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
     // ================= DELETE =================
+
     void deleteData() {
+
         try (Connection con = getCon()) {
 
             PreparedStatement ps;
 
             if (currentTable.equals("Book")) {
-                ps = con.prepareStatement("DELETE FROM Book WHERE ISBN=?");
+
+                ps = con.prepareStatement(
+                        "DELETE FROM Book WHERE ISBN=?"
+                );
+
                 ps.setString(1, f1.getText());
 
             } else if (currentTable.equals("Author")) {
-                ps = con.prepareStatement("DELETE FROM Author WHERE authid=?");
+
+                ps = con.prepareStatement(
+                        "DELETE FROM Author WHERE authid=?"
+                );
+
                 ps.setString(1, f1.getText());
 
             } else {
-                ps = con.prepareStatement("DELETE FROM Publisher WHERE pubcode=?");
+
+                ps = con.prepareStatement(
+                        "DELETE FROM Publisher WHERE pubcode=?"
+                );
+
                 ps.setString(1, f1.getText());
             }
 
-            ps.executeUpdate();
-            JOptionPane.showMessageDialog(this, "✔ Deleted");
+            int rows = ps.executeUpdate();
+
+            if (rows > 0) {
+                JOptionPane.showMessageDialog(this, "Deleted Successfully");
+            } else {
+                JOptionPane.showMessageDialog(this, "Record Not Found");
+            }
 
         } catch (Exception e) {
-            e.printStackTrace();
+
+            JOptionPane.showMessageDialog(this,
+                    "Delete Error: " + e.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
+    // ================= MAIN =================
+
     public static void main(String[] args) {
-        new bookstoreSystem();
+
+        SwingUtilities.invokeLater(() -> new bookstoreSystem());
     }
 }
